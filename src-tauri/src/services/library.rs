@@ -49,8 +49,8 @@ pub fn remove_game(game_id: &str) -> std::io::Result<Vec<GameEntry>> {
 }
 
 pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
-    let folder = Path::new(folder_path_str);
-    if !folder.exists() || !folder.is_dir() {
+    let raw_path = Path::new(folder_path_str);
+    if !raw_path.exists() {
         return GameScanResult {
             title: "Invalid Path".to_string(),
             is_valid: false,
@@ -58,7 +58,28 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
             has_graphics: false,
             has_audio: false,
             detected_rpg_version: 0,
-            message: "Specified folder does not exist or is not a directory.".to_string(),
+            message: "Specified path does not exist.".to_string(),
+        };
+    }
+
+    // If user pointed directly to a file (like Game.exe, InfiniteFusion.exe, or Game.ini)
+    let (folder, selected_file) = if raw_path.is_file() {
+        let parent = raw_path.parent().unwrap_or(raw_path);
+        let file_name = raw_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        (parent.to_path_buf(), Some(file_name.to_string()))
+    } else {
+        (raw_path.to_path_buf(), None)
+    };
+
+    if !folder.is_dir() {
+        return GameScanResult {
+            title: "Invalid Path".to_string(),
+            is_valid: false,
+            has_scripts: false,
+            has_graphics: false,
+            has_audio: false,
+            detected_rpg_version: 0,
+            message: "Containing path is not a directory.".to_string(),
         };
     }
 
@@ -97,7 +118,11 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
     let is_valid = has_scripts || (has_graphics && has_audio);
 
     let message = if is_valid {
-        "Compatible Pokémon RPG Maker XP game directory detected.".to_string()
+        if let Some(ref file) = selected_file {
+            format!("Detected '{}'. Compatible game folder resolved.", file)
+        } else {
+            "Compatible Pokémon RPG Maker XP game directory detected.".to_string()
+        }
     } else {
         "Warning: Could not find Scripts.rxdata or Data/ folder. Game may require configuration.".to_string()
     };
@@ -113,16 +138,25 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
     }
 }
 
-pub fn create_game_entry_from_scan(folder_path: &str, title_override: Option<String>) -> GameEntry {
-    let scan = scan_game_folder(folder_path);
+pub fn create_game_entry_from_scan(folder_path_str: &str, title_override: Option<String>) -> GameEntry {
+    let raw_path = Path::new(folder_path_str);
+    let (actual_folder, exec_name) = if raw_path.is_file() {
+        let parent = raw_path.parent().unwrap_or(raw_path);
+        let file_name = raw_path.file_name().and_then(|n| n.to_str()).map(String::from);
+        (parent.to_string_lossy().to_string(), file_name)
+    } else {
+        (folder_path_str.to_string(), None)
+    };
+
+    let scan = scan_game_folder(&actual_folder);
     let title = title_override.unwrap_or(scan.title);
     let now = Utc::now().timestamp();
 
     GameEntry {
         id: uuid::Uuid::new_v4().to_string(),
         title,
-        folder_path: folder_path.to_string(),
-        exec_name: None,
+        folder_path: actual_folder,
+        exec_name,
         custom_script: None,
         banner_url: None,
         icon_url: None,
@@ -154,5 +188,32 @@ mod tests {
         assert!(scan.has_scripts);
         assert!(scan.has_graphics);
         assert!(scan.has_audio);
+    }
+
+    #[test]
+    fn test_scan_game_exe_direct_file() {
+        let temp = tempfile::tempdir().unwrap();
+        let game_dir = temp.path().join("PokemonInfiniteFusion");
+        fs::create_dir_all(&game_dir).unwrap();
+        fs::create_dir_all(game_dir.join("Data")).unwrap();
+        fs::create_dir_all(game_dir.join("Graphics")).unwrap();
+        fs::create_dir_all(game_dir.join("Audio")).unwrap();
+        fs::write(game_dir.join("Data").join("Scripts.rxdata"), b"").unwrap();
+        fs::write(game_dir.join("Game.ini"), "[Game]\nTitle=Pokemon Infinite Fusion\n").unwrap();
+        
+        let exe_file = game_dir.join("InfiniteFusion.exe");
+        fs::write(&exe_file, b"MZ_PE_STUB").unwrap();
+
+        // Scan passing the .exe file path directly
+        let scan = scan_game_folder(exe_file.to_str().unwrap());
+        assert!(scan.is_valid);
+        assert_eq!(scan.title, "Pokemon Infinite Fusion");
+        assert!(scan.message.contains("InfiniteFusion.exe"));
+
+        // Create entry passing the .exe file
+        let entry = create_game_entry_from_scan(exe_file.to_str().unwrap(), None);
+        assert_eq!(entry.title, "Pokemon Infinite Fusion");
+        assert_eq!(entry.folder_path, game_dir.to_str().unwrap());
+        assert_eq!(entry.exec_name, Some("InfiniteFusion.exe".to_string()));
     }
 }

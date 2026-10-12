@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, FolderOpen, CheckCircle2, AlertCircle, Sparkles, Gamepad2 } from 'lucide-react';
+import { X, FolderOpen, CheckCircle2, AlertCircle, Sparkles, Gamepad2, FileCode, HelpCircle } from 'lucide-react';
 import { GameScanResult } from '../types';
 import { scanFolder, importGame } from '../api';
 
@@ -19,7 +19,7 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleBrowse = async () => {
+  const handleBrowseFolder = async () => {
     try {
       // @ts-ignore
       if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
@@ -27,19 +27,49 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
         const selected = await open({
           directory: true,
           multiple: false,
-          title: 'Select Pokémon Fan Game Folder',
+          title: 'Select Game Folder',
         });
         if (selected && typeof selected === 'string') {
           setFolderPath(selected);
           runScan(selected);
         }
       } else {
-        const dummyPath = '/Applications/Pokemon Reborn';
+        const dummyPath = '/Applications/Pokemon Infinite Fusion';
         setFolderPath(dummyPath);
         runScan(dummyPath);
       }
     } catch (e: any) {
       console.error('Error opening dialog:', e);
+    }
+  };
+
+  const handleBrowseFile = async () => {
+    try {
+      // @ts-ignore
+      if (window.__TAURI_INTERNALS__ || window.__TAURI__) {
+        const { open } = await import('@tauri-apps/plugin-dialog');
+        const selected = await open({
+          directory: false,
+          multiple: false,
+          title: 'Select Game Executable (Game.exe or InfiniteFusion.exe)',
+          filters: [
+            {
+              name: 'Game Executable or Script',
+              extensions: ['exe', 'ini', 'rxdata'],
+            },
+          ],
+        });
+        if (selected && typeof selected === 'string') {
+          setFolderPath(selected);
+          runScan(selected);
+        }
+      } else {
+        const dummyPath = '/Applications/Pokemon Infinite Fusion/InfiniteFusion.exe';
+        setFolderPath(dummyPath);
+        runScan(dummyPath);
+      }
+    } catch (e: any) {
+      console.error('Error opening file dialog:', e);
     }
   };
 
@@ -86,7 +116,7 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">Import Fan Game</h3>
-              <p className="text-xs text-slate-400">Select any local RPG Maker XP Pokémon game folder</p>
+              <p className="text-xs text-slate-400">Select any local RPGXP game directory or .exe file</p>
             </div>
           </div>
 
@@ -101,13 +131,16 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
         {/* Path selection */}
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-              Game Directory Path
-            </label>
-            <div className="flex gap-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-300">
+                Game Path (Folder or .exe)
+              </label>
+              <span className="text-[10px] text-slate-500">e.g. Game.exe / InfiniteFusion.exe</span>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
-                placeholder="/path/to/Pokemon Fangame"
+                placeholder="/path/to/game or .../InfiniteFusion.exe"
                 value={folderPath}
                 onChange={(e) => {
                   setFolderPath(e.target.value);
@@ -115,19 +148,45 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
                 }}
                 className="flex-1 bg-slate-950 border border-slate-800 focus:border-rose-500 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
               />
-              <button
-                onClick={handleBrowse}
-                className="px-3 py-2 rounded-xl text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5 transition-colors"
-              >
-                <FolderOpen className="w-3.5 h-3.5" />
-                <span>Browse</span>
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleBrowseFolder}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  title="Browse for the entire game directory"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Folder</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBrowseFile}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  title="Select Game.exe or InfiniteFusion.exe directly"
+                >
+                  <FileCode className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Select .exe</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Infinite Fusion / .exe explanation callout */}
+          <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
+            <HelpCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="text-slate-300 font-semibold block mb-0.5">
+                Have a game like Pokémon Infinite Fusion with an .exe?
+              </span>
+              <span>
+                You can select either the game folder or <code className="text-slate-200 bg-slate-950 px-1 rounded font-mono">InfiniteFusion.exe</code> directly. Oak Launcher detects the surrounding RPGXP assets and launches them natively on macOS without Wine!
+              </span>
             </div>
           </div>
 
           {/* Validation Feedback */}
           {isScanning && (
-            <p className="text-xs text-slate-400 animate-pulse">Scanning game folder structure...</p>
+            <p className="text-xs text-slate-400 animate-pulse">Scanning game assets...</p>
           )}
 
           {scanResult && (
@@ -165,7 +224,7 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
             </label>
             <input
               type="text"
-              placeholder="e.g. Pokémon Reborn"
+              placeholder="e.g. Pokémon Infinite Fusion"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 focus:border-rose-500 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
