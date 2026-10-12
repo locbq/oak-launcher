@@ -49,29 +49,13 @@ pub fn remove_game(game_id: &str) -> std::io::Result<Vec<GameEntry>> {
 }
 
 pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
-    let raw_path = Path::new(folder_path_str);
-    if !raw_path.exists() {
-        return GameScanResult {
-            title: "Invalid Path".to_string(),
-            is_valid: false,
-            has_scripts: false,
-            has_graphics: false,
-            has_audio: false,
-            detected_rpg_version: 0,
-            message: "Specified path does not exist.".to_string(),
+    let folder = Path::new(folder_path_str);
+    if !folder.exists() || !folder.is_dir() {
+        let message = if folder.is_file() {
+            "Please select the extracted game folder containing 'Data/Scripts.rxdata', not an individual file.".to_string()
+        } else {
+            "Specified folder does not exist or is not a directory.".to_string()
         };
-    }
-
-    // If user pointed directly to a file (like Game.exe, InfiniteFusion.exe, or Game.ini)
-    let (folder, selected_file) = if raw_path.is_file() {
-        let parent = raw_path.parent().unwrap_or(raw_path);
-        let file_name = raw_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-        (parent.to_path_buf(), Some(file_name.to_string()))
-    } else {
-        (raw_path.to_path_buf(), None)
-    };
-
-    if !folder.is_dir() {
         return GameScanResult {
             title: "Invalid Path".to_string(),
             is_valid: false,
@@ -79,7 +63,7 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
             has_graphics: false,
             has_audio: false,
             detected_rpg_version: 0,
-            message: "Containing path is not a directory.".to_string(),
+            message,
         };
     }
 
@@ -118,28 +102,9 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
     let is_valid = has_scripts || (has_graphics && has_audio);
 
     let message = if is_valid {
-        if let Some(ref file) = selected_file {
-            format!("Detected '{}'. Compatible game folder resolved.", file)
-        } else {
-            "Compatible Pokémon RPG Maker XP game directory detected.".to_string()
-        }
+        "Compatible Pokémon RPG Maker XP game directory detected.".to_string()
     } else {
-        if let Some(ref file) = selected_file {
-            let lower = file.to_lowercase();
-            if lower.contains("launcher") || lower.contains("setup") || lower.contains("installer") {
-                format!(
-                    "'{}' is an online installer stub, not the game itself. Please download the full game archive (InfiniteFusion.zip) which contains 'Data/Scripts.rxdata'.",
-                    file
-                )
-            } else {
-                format!(
-                    "Could not find 'Data/Scripts.rxdata' in the folder containing '{}'. Please ensure game assets are fully extracted.",
-                    file
-                )
-            }
-        } else {
-            "Could not find 'Data/Scripts.rxdata'. Please ensure game assets are extracted into this folder.".to_string()
-        }
+        "Could not find 'Data/Scripts.rxdata'. Please ensure the full game zip is extracted into this folder.".to_string()
     };
 
     GameScanResult {
@@ -153,25 +118,16 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
     }
 }
 
-pub fn create_game_entry_from_scan(folder_path_str: &str, title_override: Option<String>) -> GameEntry {
-    let raw_path = Path::new(folder_path_str);
-    let (actual_folder, exec_name) = if raw_path.is_file() {
-        let parent = raw_path.parent().unwrap_or(raw_path);
-        let file_name = raw_path.file_name().and_then(|n| n.to_str()).map(String::from);
-        (parent.to_string_lossy().to_string(), file_name)
-    } else {
-        (folder_path_str.to_string(), None)
-    };
-
-    let scan = scan_game_folder(&actual_folder);
+pub fn create_game_entry_from_scan(folder_path: &str, title_override: Option<String>) -> GameEntry {
+    let scan = scan_game_folder(folder_path);
     let title = title_override.unwrap_or(scan.title);
     let now = Utc::now().timestamp();
 
     GameEntry {
         id: uuid::Uuid::new_v4().to_string(),
         title,
-        folder_path: actual_folder,
-        exec_name,
+        folder_path: folder_path.to_string(),
+        exec_name: None,
         custom_script: None,
         banner_url: None,
         icon_url: None,
@@ -219,16 +175,9 @@ mod tests {
         let exe_file = game_dir.join("InfiniteFusion.exe");
         fs::write(&exe_file, b"MZ_PE_STUB").unwrap();
 
-        // Scan passing the .exe file path directly
+        // Scan passing an individual file path directly should reject and request folder
         let scan = scan_game_folder(exe_file.to_str().unwrap());
-        assert!(scan.is_valid);
-        assert_eq!(scan.title, "Pokemon Infinite Fusion");
-        assert!(scan.message.contains("InfiniteFusion.exe"));
-
-        // Create entry passing the .exe file
-        let entry = create_game_entry_from_scan(exe_file.to_str().unwrap(), None);
-        assert_eq!(entry.title, "Pokemon Infinite Fusion");
-        assert_eq!(entry.folder_path, game_dir.to_str().unwrap());
-        assert_eq!(entry.exec_name, Some("InfiniteFusion.exe".to_string()));
+        assert!(!scan.is_valid);
+        assert!(scan.message.contains("Please select the extracted game folder"));
     }
 }
