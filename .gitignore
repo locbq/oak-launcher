@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Node / Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/binaries/*
+!src-tauri/binaries/.gitkeep
+
+# Runtimes and Games
+runtime/mkxp-z/
+downloads/
+test-games/
+*.rxdata
+*.rubysave
+
+# Logs and Env
+*.log
+.env

@@ -1,0 +1,29 @@
+[package]
+name = "oak-launcher"
+version = "0.1.0"
+description = "Native macOS Pokémon RPGXP Fan Game Player"
+authors = ["Oak Launcher Team"]
+edition = "2021"
+
+[lib]
+name = "oak_launcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dirs = "5.0"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
+walkdir = "2.5"
+tokio = { version = "1", features = ["full"] }
+
+[dev-dependencies]
+tempfile = "3"
