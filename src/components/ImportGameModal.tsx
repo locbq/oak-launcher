@@ -246,7 +246,7 @@ export const ImportGameModal: React.FC<ImportGameModalProps> = ({
           </button>
           <button
             onClick={handleImport}
-            disabled={!folderPath.trim() || isImporting}
+            disabled={!folderPath.trim() || isImporting || (scanResult !== null && !scanResult.is_valid)}
             className="flex items-center space-x-1.5 px-5 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-rose-950/40 transition-all transform active:scale-95"
           >
             <Sparkles className="w-3.5 h-3.5" />

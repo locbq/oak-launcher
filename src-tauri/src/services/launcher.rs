@@ -93,6 +93,17 @@ pub fn launch_game<R: tauri::Runtime>(
         return Err(format!("Game folder does not exist: {}", game.folder_path));
     }
 
+    // Verify Data/Scripts.rxdata exists
+    let data_scripts = game_path.join("Data").join("Scripts.rxdata");
+    let root_scripts = game_path.join("Scripts.rxdata");
+    if !data_scripts.exists() && !root_scripts.exists() {
+        return Err(format!(
+            "Cannot launch '{}': Could not find 'Data/Scripts.rxdata' in '{}'. This directory is missing the actual game files. If you selected an installer .exe, please download and extract the full game archive (InfiniteFusion.zip).",
+            game.title,
+            game.folder_path
+        ));
+    }
+
     // Step 1: Perform automatic save backup before launch
     let _ = create_pre_launch_backup(&game);
 

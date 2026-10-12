@@ -124,7 +124,22 @@ pub fn scan_game_folder(folder_path_str: &str) -> GameScanResult {
             "Compatible Pokémon RPG Maker XP game directory detected.".to_string()
         }
     } else {
-        "Warning: Could not find Scripts.rxdata or Data/ folder. Game may require configuration.".to_string()
+        if let Some(ref file) = selected_file {
+            let lower = file.to_lowercase();
+            if lower.contains("launcher") || lower.contains("setup") || lower.contains("installer") {
+                format!(
+                    "'{}' is an online installer stub, not the game itself. Please download the full game archive (InfiniteFusion.zip) which contains 'Data/Scripts.rxdata'.",
+                    file
+                )
+            } else {
+                format!(
+                    "Could not find 'Data/Scripts.rxdata' in the folder containing '{}'. Please ensure game assets are fully extracted.",
+                    file
+                )
+            }
+        } else {
+            "Could not find 'Data/Scripts.rxdata'. Please ensure game assets are extracted into this folder.".to_string()
+        }
     };
 
     GameScanResult {
